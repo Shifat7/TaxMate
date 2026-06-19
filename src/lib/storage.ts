@@ -69,7 +69,11 @@ export function importWfhCsv(csv: string): WfhEntry[] {
     if (parts.length >= 2) {
       const date = parts[0].trim()
       const hours = parseFloat(parts[1].trim())
-      const notes = parts.slice(2).join(",").trim()
+      let notes = parts.slice(2).join(",").trim()
+      // strip surrounding quotes and unescape
+      if (notes.startsWith('"') && notes.endsWith('"')) {
+        notes = notes.slice(1, -1).replace(/""/g, '"')
+      }
       if (date && !isNaN(hours)) {
         entries.push({ date, hours, notes })
       }
@@ -90,7 +94,7 @@ export function exportWfhCsv(): string {
   const log = getWfhLog()
   const sorted = [...log].sort((a, b) => a.date.localeCompare(b.date))
   const header = "date,hours,notes"
-  const rows = sorted.map((e) => `${e.date},${e.hours},"${e.notes}"`)
+  const rows = sorted.map((e) => `${e.date},${e.hours},"${e.notes.replace(/"/g, '""')}"`)
   return [header, ...rows].join("\n")
 }
 
@@ -108,4 +112,71 @@ export function getWfhRate(): number {
 
 export function setWfhRate(rate: number): void {
   setStorageItem(KEYS.wfhRate, rate)
+}
+
+export interface WfhLogSummary {
+  totalDays: number
+  totalHours: number
+  uniqueWeeks: number
+}
+
+export function getWfhLogSummary(): WfhLogSummary {
+  const log = getWfhLog()
+  if (log.length === 0) return { totalDays: 0, totalHours: 0, uniqueWeeks: 0 }
+
+  const totalHours = log.reduce((sum, e) => sum + e.hours, 0)
+
+  // Calculate unique ISO weeks from entries
+  const weeks = new Set<string>()
+  for (const entry of log) {
+    const [y, m, d] = entry.date.split("-").map(Number)
+    const date = new Date(y, m - 1, d)
+    // ISO week number: move to Thursday then count weeks from year start
+    const dayNum = date.getDay() || 7
+    date.setDate(date.getDate() + 4 - dayNum)
+    const yearStart = new Date(date.getFullYear(), 0, 1)
+    const weekNum = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+    weeks.add(`${date.getFullYear()}-W${String(weekNum).padStart(2, "0")}`)
+  }
+
+  return {
+    totalDays: log.length,
+    totalHours,
+    uniqueWeeks: weeks.size,
+  }
+}
+
+export interface CsvReportInput {
+  jobLabel: string
+  wfhHours: number | null
+  wfhWeeks: number
+  wfhClaim: number
+  deductions: { id: string; label: string; maxClaim?: string }[]
+}
+
+export function generateCsvReport(input: CsvReportInput): string {
+  const rows: string[][] = []
+  const push = (cells: string[]) => rows.push(cells.map((c) => `"${c.replace(/"/g, '""')}"`))
+
+  // Header
+  push(["TaxMate Deduction Report", ""])
+  push(["Generated", new Date().toLocaleDateString("en-AU")])
+  push([""])
+
+  // Job & WFH
+  push(["Job type", input.jobLabel])
+  push(["WFH hours per week", String(input.wfhHours ?? 0)])
+  push(["Weeks worked from home", String(input.wfhWeeks)])
+  push(["WFH estimated claim", `$${input.wfhClaim.toFixed(2)}`])
+  push([""])
+
+  // Deductions table
+  push(["Deduction", "Max claim"])
+  for (const d of input.deductions) {
+    push([d.label, d.maxClaim ?? "Varies"])
+  }
+  push([""])
+  push(["Report prepared for tax purposes — verify with your tax agent.", ""])
+
+  return rows.map((r) => r.join(",")).join("\n")
 }

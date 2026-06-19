@@ -1,46 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
-import { PurchaseProvider, usePurchase } from "@/lib/purchase-context"
-import { isUnlocked } from "@/lib/storage"
 
 function AuditGuidePage() {
-  const { unlocked } = usePurchase()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-
-  const canAccess = mounted && (unlocked || isUnlocked())
-
-  if (mounted && !canAccess) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-white via-taxmate-50/20 to-white">
-        <nav className="flex items-center gap-4 px-6 py-5 max-w-3xl mx-auto border-b border-neutral-100">
-          <Link href="/" className="text-sm text-neutral-400 hover:text-neutral-700 transition flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
-            Home
-          </Link>
-          <span className="text-sm font-bold tracking-tight">Audit guide</span>
-        </nav>
-        <main className="px-6 py-20 text-center max-w-md mx-auto">
-          <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400 mb-6">
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75l3 3m0 0l3-3m-3 3v-7.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </span>
-          <h2 className="text-2xl font-bold">Audit support guide</h2>
-          <p className="mt-2 text-neutral-500">What records to keep and how to handle an ATO review.</p>
-          <Link
-            href="/purchase"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-taxmate-600 px-6 py-3 text-sm font-semibold text-white hover:bg-taxmate-700 transition shadow-lg"
-          >
-            Unlock — $4.99
-          </Link>
-        </main>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-taxmate-50/20 to-white">
       <nav className="flex items-center gap-4 px-6 py-5 max-w-3xl mx-auto border-b border-neutral-100">
@@ -234,9 +196,5 @@ function AuditGuidePage() {
 }
 
 export default function AuditGuide() {
-  return (
-    <PurchaseProvider>
-      <AuditGuidePage />
-    </PurchaseProvider>
-  )
+  return <AuditGuidePage />
 }

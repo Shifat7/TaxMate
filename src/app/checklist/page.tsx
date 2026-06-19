@@ -1,51 +1,31 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
-import { JOB_TYPES, getDeductionsForJobType, estimateWfhClaim } from "@/data/deductions"
-import { PurchaseProvider, usePurchase } from "@/lib/purchase-context"
-import { isUnlocked } from "@/lib/storage"
+import { JOB_TYPES, DeductionCategory, getDeductionsForJobType, estimateWfhClaim, getTotalWfhHours, getAverageWeeklyHours, calculateRefundImpact, TAX_BRACKETS, ATO_THREE_WAY_TEST, WFH_RATE, Step, STEPS, ChecklistAnswers, getVisibleStepsForJob, isDeductionApplicable, jobLabel } from "@/data/deductions"
+import { getWfhLogSummary, generateCsvReport } from "@/lib/storage"
 
-type Step = "job" | "wfh" | "equipment" | "union" | "education" | "uniforms" | "other" | "results"
-
-interface Answers {
-  jobType: string
-  wfhHours: number | null
-  homeOfficeGear: boolean
-  isUnionMember: boolean
-  selfEducation: boolean
-  uniforms: "none" | "compulsory" | "scrubs"
-  otherExpenses: boolean
-}
-
-const steps: { id: Step; label: string }[] = [
-  { id: "job", label: "Job type" },
-  { id: "wfh", label: "WFH" },
-  { id: "equipment", label: "Equipment" },
-  { id: "union", label: "Memberships" },
-  { id: "education", label: "Education" },
-  { id: "uniforms", label: "Uniform" },
-  { id: "other", label: "Other" },
-  { id: "results", label: "Results" },
-]
+type Answers = ChecklistAnswers
 
 function ProgressBar({ current, answers }: { current: Step; answers: Answers }) {
-  const currentIndex = steps.findIndex((s) => s.id === current)
-  const visibleSteps = current === "results" ? steps : steps.slice(0, Math.max(currentIndex + 1, 3))
+  const visible = getVisibleStepsForJob(answers.jobType)
+  const currentIndex = STEPS.findIndex((s) => s.id === current)
+  const visibleSteps = current === "results" ? visible : visible.slice(0, Math.max(currentIndex + 1, 3))
 
   return (
     <div className="flex items-center gap-1 mb-8">
       {visibleSteps.map((s, i) => {
-        const isActive = s.id === current
+        const def = STEPS.find((st) => st.id === s)!
+        const isActive = s === current
         const isPast = i < currentIndex
         return (
-          <div key={s.id} className="flex items-center gap-1 flex-1">
+          <div key={s} className="flex items-center gap-1 flex-1">
             <div className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold transition-all ${
               isPast ? "bg-taxmate-600 text-white" :
               isActive ? "bg-taxmate-600 text-white ring-2 ring-taxmate-200" :
               "bg-neutral-100 text-neutral-400"
             }`}>
-              {isPast ? "✓" : s.label.charAt(0)}
+              {isPast ? "✓" : def.label.charAt(0)}
             </div>
             {i < visibleSteps.length - 1 && (
               <div className={`flex-1 h-0.5 rounded-full ${i < currentIndex ? "bg-taxmate-400" : "bg-neutral-200"}`} />
@@ -58,32 +38,86 @@ function ProgressBar({ current, answers }: { current: Step; answers: Answers }) 
 }
 
 function ChecklistFlow() {
-  const { unlocked } = usePurchase()
   const [step, setStep] = useState<Step>("job")
   const [answers, setAnswers] = useState<Answers>({
     jobType: "",
     wfhHours: null,
+    wfhWeeks: 48,
     homeOfficeGear: false,
     isUnionMember: false,
     selfEducation: false,
     uniforms: "none",
     otherExpenses: false,
   })
+  const [wfhLogSummary, setWfhLogSummary] = useState<{ totalDays: number; totalHours: number; uniqueWeeks: number } | null>(null)
+  const [taxBracketIndex, setTaxBracketIndex] = useState<number | null>(null)
+  const [showMethodPopup, setShowMethodPopup] = useState(false)
+  const [clampMessage, setClampMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    const summary = getWfhLogSummary()
+    if (summary.totalDays > 0) {
+      setWfhLogSummary(summary)
+      // Pre-fill with log average
+      const avgHours = summary.uniqueWeeks > 0
+        ? Math.round(summary.totalHours / summary.uniqueWeeks)
+        : Math.round(summary.totalHours)
+      setAnswers((prev) => ({ ...prev, wfhHours: avgHours }))
+    }
+  }, [])
 
   function update(delta: Partial<Answers>) {
     setAnswers((prev) => ({ ...prev, ...delta }))
   }
 
+  function clampAndShow(value: number, min: number, max: number, field: keyof Answers, fallback: number): number {
+    if (isNaN(value) || value < min) {
+      setClampMessage(`Minimum ${min}`)
+      setTimeout(() => setClampMessage(null), 2500)
+      return fallback
+    }
+    if (value > max) {
+      setClampMessage(`Maximum ${max}`)
+      setTimeout(() => setClampMessage(null), 2500)
+      return max
+    }
+    return value
+  }
+
   function next(s: Step) {
-    setStep(s)
+    const visible = getVisibleStepsForJob(answers.jobType)
+    const stepOrder: Step[] = ["job", "wfh", "equipment", "union", "education", "uniforms", "other", "results"]
+    const sIdx = stepOrder.indexOf(s)
+
+    // if the target is visible, use it; otherwise find the next visible step after it
+    if (visible.includes(s)) {
+      setStep(s)
+    } else {
+      const nextVisible = visible.find((v) => stepOrder.indexOf(v) > sIdx)
+      setStep(nextVisible ?? s)
+    }
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   const deductions = useMemo(() => answers.jobType ? getDeductionsForJobType(answers.jobType) : [], [answers.jobType])
-  const wfhClaim = answers.wfhHours ? estimateWfhClaim(answers.wfhHours) : 0
+  const wfhClaim = answers.wfhHours ? estimateWfhClaim(answers.wfhHours, answers.wfhWeeks) : 0
 
-  function jobLabel(id: string) {
-    return JOB_TYPES.find((j) => j.id === id)?.label ?? id
+  function downloadReport() {
+    const applicable = deductions.filter((d) => isDeductionApplicable(d, answers))
+    const csv = generateCsvReport({
+      jobLabel: jobLabel(answers.jobType),
+      wfhHours: answers.wfhHours,
+      wfhWeeks: answers.wfhWeeks,
+      wfhClaim,
+      deductions: applicable.map((d) => ({ id: d.id, label: d.label, maxClaim: d.maxClaim })),
+    })
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `taxmate-deduction-report-${new Date().toISOString().split("T")[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function renderYesNo(key: keyof Answers, nextStep: Step, labelTrue?: string, labelFalse?: string) {
@@ -165,6 +199,97 @@ function ChecklistFlow() {
             </span>
             <h2 className="text-2xl font-bold">Do you work from home?</h2>
             <p className="mt-1 text-neutral-500">Estimate your average WFH hours per week (0 if none).</p>
+
+            {/* Fixed-rate vs actual cost comparison popover */}
+            <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                    Fixed-rate: ${WFH_RATE.toFixed(2)}/hr
+                  </span>
+                  <p className="text-xs text-blue-700 mt-1.5">
+                    Covers electricity, internet, phone, and stationery. No apportionment needed. Keep a 4-week diary.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMethodPopup(true)}
+                  className="shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 transition flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                  </svg>
+                  Compare methods
+                </button>
+              </div>
+            </div>
+
+            {/* Method comparison modal */}
+            {showMethodPopup && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowMethodPopup(false)}>
+                <div className="max-w-lg w-full rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-lg">Fixed-rate vs Actual cost</h3>
+                    <button onClick={() => setShowMethodPopup(false)} className="text-neutral-400 hover:text-neutral-700 transition">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                      <p className="font-semibold text-blue-900 text-sm">Fixed-rate method (recommended)</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Claim $0.67 per hour worked from home. This covers electricity, internet, phone usage, and
+                        stationery in a single rate. No apportionment calculations needed. Requires a 4-week diary or
+                        timesheet as evidence.
+                      </p>
+                      <p className="text-xs text-blue-600 mt-2 font-medium">Best for: most people — simpler, less record-keeping.</p>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                      <p className="font-semibold text-amber-900 text-sm">Actual cost method</p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        Track and claim the actual costs of each expense category separately — electricity, internet,
+                        phone, stationery, etc. Requires receipts and an apportionment calculation for shared expenses
+                        (e.g., what % of your internet is work-related).
+                      </p>
+                      <p className="text-xs text-amber-600 mt-2 font-medium">Best for: high-energy users who can substantiate larger claims.</p>
+                    </div>
+                    <div className="text-xs text-neutral-500 bg-neutral-50 rounded-xl p-3">
+                      <p className="font-semibold text-neutral-700">ATO note:</p>
+                      <p className="mt-0.5">You must choose one method for the full year — you can't switch between them for different periods. The fixed-rate method already includes the decline in value of home office furniture and equipment.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {wfhLogSummary && (
+              <div className="mt-4 rounded-xl border border-taxmate-200 bg-gradient-to-r from-taxmate-50 to-white p-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-lg mt-0.5">📊</span>
+                  <div>
+                    <p className="font-semibold text-taxmate-900 text-sm">
+                      Your WFH log has data
+                    </p>
+                    <p className="text-xs text-taxmate-700 mt-0.5">
+                      {wfhLogSummary.totalDays} entries — {wfhLogSummary.totalHours} total hours
+                      {wfhLogSummary.uniqueWeeks > 0 && ` across ${wfhLogSummary.uniqueWeeks} weeks`}
+                    </p>
+                    <p className="text-xs text-taxmate-600 mt-1">
+                      Hours pre-filled from your log. Edit if needed.
+                    </p>
+                    <Link
+                      href="/wfh-log"
+                      className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-taxmate-600 hover:text-taxmate-800 transition"
+                    >
+                      View WFH log →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="mt-5">
               <div className="relative">
                 <input
@@ -174,12 +299,44 @@ function ChecklistFlow() {
                   placeholder="Hours per week"
                   className="w-full rounded-xl border-2 border-neutral-200 px-5 py-4 text-lg focus:border-taxmate-400 focus:outline-none focus:ring-2 focus:ring-taxmate-100 transition"
                   value={answers.wfhHours ?? ""}
-                  onChange={(e) => update({ wfhHours: Math.min(80, Math.max(0, Number(e.target.value) || 0)) })}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value)
+                    const clamped = clampAndShow(raw, 0, 80, "wfhHours", 0)
+                    update({ wfhHours: isNaN(raw) ? 0 : clamped })
+                  }}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-400">hrs/wk</span>
               </div>
+              {clampMessage && (
+                <p className="text-xs text-amber-600 mt-1 transition">{clampMessage}</p>
+              )}
             </div>
-            <div className="mt-6">
+
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-neutral-600 mb-1.5">Weeks worked from home</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={1}
+                  max={52}
+                  placeholder="Weeks"
+                  className="w-full rounded-xl border-2 border-neutral-200 px-5 py-3 text-base focus:border-taxmate-400 focus:outline-none focus:ring-2 focus:ring-taxmate-100 transition"
+                  value={answers.wfhWeeks}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value)
+                    const clamped = clampAndShow(raw, 1, 52, "wfhWeeks", 48)
+                    update({ wfhWeeks: isNaN(raw) ? 48 : clamped })
+                  }}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-400">wks/yr</span>
+              </div>
+              {clampMessage && (
+                <p className="text-xs text-amber-600 mt-1 transition">{clampMessage}</p>
+              )}
+              <p className="text-xs text-neutral-400 mt-1">ATO default: 48 weeks. Adjust if you worked fewer/more weeks.</p>
+            </div>
+
+            <div className="mt-5">
               <button
                 onClick={() => next("equipment")}
                 className="w-full rounded-xl bg-taxmate-600 px-6 py-3.5 text-sm font-semibold text-white hover:bg-taxmate-700 transition shadow-sm"
@@ -288,23 +445,31 @@ function ChecklistFlow() {
               </p>
             </div>
 
+            {/* ATO three-way test compliance banner */}
+            <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <span className="text-lg mt-0.5 shrink-0">📋</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-blue-900 text-sm">ATO three-way test for every deduction</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {ATO_THREE_WAY_TEST.map((rule, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-blue-700">
+                        <span className="mt-0.5 shrink-0">•</span>
+                        <span><strong>{rule.title}:</strong> {rule.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-blue-500 mt-2">
+                    Every deduction below includes specific record-keeping guidance. The ATO uses these three tests to
+                    assess your claim — make sure you can satisfy all three.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-3">
               {deductions.map((d) => {
-                const checked =
-                  (d.id === "wfh" && (answers.wfhHours ?? 0) > 0) ||
-                  (d.id === "home-office-equipment" && answers.homeOfficeGear) ||
-                  (d.id === "professional-memberships" && answers.isUnionMember) ||
-                  (d.id === "union-fees" && answers.isUnionMember) ||
-                  (d.id === "self-education" && answers.selfEducation) ||
-                  (d.id === "uniforms" && answers.uniforms !== "none") ||
-                  (d.id === "uniforms-scrubs" && answers.uniforms !== "none") ||
-                  (d.id === "laundry" && answers.uniforms !== "none") ||
-                  d.id === "classroom-supplies" ||
-                  d.id === "tools-equipment" ||
-                  d.id === "vehicle" ||
-                  d.id === "protective-gear"
-
-                if (!checked) return null
+                if (!isDeductionApplicable(d, answers)) return null
 
                 return (
                   <div key={d.id} className="rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-white p-5">
@@ -316,6 +481,12 @@ function ChecklistFlow() {
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">✓</span>
                     </div>
                     {d.maxClaim && <p className="mt-2 text-xs text-green-600 font-medium">{d.maxClaim}</p>}
+                    <div className="mt-3 pt-2 border-t border-green-100">
+                      <p className="text-xs text-green-600 flex items-start gap-1.5">
+                        <span className="shrink-0 mt-0.5">📌</span>
+                        <span>{d.complianceNote}</span>
+                      </p>
+                    </div>
                   </div>
                 )
               })}
@@ -324,27 +495,60 @@ function ChecklistFlow() {
                 <div className="rounded-xl border border-taxmate-200 bg-gradient-to-r from-taxmate-50 to-white p-6">
                   <p className="text-lg font-bold text-taxmate-900">WFH estimated claim: ${wfhClaim}</p>
                   <p className="text-sm text-taxmate-700 mt-1">
-                    Based on {answers.wfhHours} hours/week at $0.67/hr for 48 weeks
+                    Based on {answers.wfhHours} hours/week at ${WFH_RATE.toFixed(2)}/hr for{"\u00A0"}{answers.wfhWeeks}{"\u00A0"}weeks
+                    {wfhLogSummary && (
+                      <span> — from your WFH log ({wfhLogSummary.totalHours}h total)</span>
+                    )}
                   </p>
                 </div>
               )}
 
-              {deductions.filter((d) => {
-                const checked =
-                  (d.id === "wfh" && (answers.wfhHours ?? 0) > 0) ||
-                  (d.id === "home-office-equipment" && answers.homeOfficeGear) ||
-                  (d.id === "professional-memberships" && answers.isUnionMember) ||
-                  (d.id === "union-fees" && answers.isUnionMember) ||
-                  (d.id === "self-education" && answers.selfEducation) ||
-                  (d.id === "uniforms" && answers.uniforms !== "none") ||
-                  (d.id === "uniforms-scrubs" && answers.uniforms !== "none") ||
-                  (d.id === "laundry" && answers.uniforms !== "none") ||
-                  d.id === "classroom-supplies" ||
-                  d.id === "tools-equipment" ||
-                  d.id === "vehicle" ||
-                  d.id === "protective-gear"
-                return checked
-              }).length === 0 && (
+              {/* Refund impact calculator */}
+              {(answers.wfhHours ?? 0) > 0 && (
+                <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-blue-900 text-sm">Refund impact estimate</p>
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        Your marginal tax rate determines how much of your deductions come back as refund.
+                      </p>
+                    </div>
+                    <select
+                      value={taxBracketIndex ?? ""}
+                      onChange={(e) => setTaxBracketIndex(e.target.value ? Number(e.target.value) : null)}
+                      className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-blue-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 transition"
+                    >
+                      <option value="">Select bracket</option>
+                      {TAX_BRACKETS.map((b, i) => (
+                        <option key={i} value={i}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {taxBracketIndex !== null && (
+                    <div className="mt-3 pt-3 border-t border-blue-100">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm text-blue-800">Estimated deduction</span>
+                        <span className="font-bold text-blue-900">${wfhClaim}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className="text-sm text-blue-800">Marginal rate</span>
+                        <span className="font-medium text-blue-900">{TAX_BRACKETS[taxBracketIndex].range}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-3 pt-2 border-t border-blue-100">
+                        <span className="text-sm font-semibold text-blue-900">Estimated refund boost</span>
+                        <span className="text-lg font-bold text-green-700">+${calculateRefundImpact(wfhClaim, TAX_BRACKETS[taxBracketIndex].rate)}</span>
+                      </div>
+                      <p className="text-xs text-blue-500 mt-2">
+                        This is an estimate. Actual refund depends on your total tax position. Check with your tax agent.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {deductions.filter((d) => isDeductionApplicable(d, answers)).length === 0 && (
                 <div className="rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-5">
                   <p className="font-semibold text-amber-900">No specific deductions matched</p>
                   <p className="text-sm text-amber-700 mt-1">
@@ -352,23 +556,73 @@ function ChecklistFlow() {
                   </p>
                 </div>
               )}
+
+              {/* $300 instant asset write-off info */}
+              {deductions.filter((d) => isDeductionApplicable(d, answers)).some((d) =>
+                ["home-office-equipment", "tools-equipment"].includes(d.id)
+              ) && (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg mt-0.5">⚡</span>
+                    <div>
+                      <p className="font-semibold text-amber-900 text-sm">$300 instant asset write-off</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Items under $300 are fully deductible in the year of purchase. Items costing $300 or more must be
+                        depreciated over their effective life. The $300 threshold applies per item, not per purchase.
+                      </p>
+                      <a
+                        href="https://www.ato.gov.au/individuals-and-households/income-and-deductions/deductions-you-can-claim/other-deductions/equipment-depreciation-and-instant-asset-write-off"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-amber-600 hover:text-amber-800 transition"
+                      >
+                        ATO guidance →
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Personal super contributions info */}
+              <div className="mt-4 rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 to-white p-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-lg mt-0.5">💰</span>
+                  <div>
+                    <p className="font-semibold text-teal-900 text-sm">Personal super contributions</p>
+                    <p className="text-xs text-teal-700 mt-0.5">
+                      You can make personal deductible contributions to your super fund and claim a tax deduction.
+                      The concessional cap is $30,000 for 2025-26.
+                    </p>
+                    <div className="mt-2 space-y-2 text-xs">
+                      <div className="flex items-start gap-2">
+                        <span className="text-teal-600 shrink-0">✓</span>
+                        <span className="text-teal-800">
+                          <strong>Government co-contribution:</strong> If your income is under $58,445, the
+                          government matches 50% of your after-tax contributions (up to $500).
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-teal-600 shrink-0">✓</span>
+                        <span className="text-teal-800">
+                          <strong>LISTO:</strong> Low Income Super Tax Offset — if your income is under
+                          $37,000, the government refunds the 15% tax on your super contributions (up to $500).
+                        </span>
+                      </div>
+                    </div>
+                    <a
+                      href="https://www.ato.gov.au/individuals-and-households/super/withdrawing-and-using-your-super/contributions-you-can-claim-as-a-tax-deduction"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-teal-600 hover:text-teal-800 transition"
+                    >
+                      ATO super guide →
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {!unlocked && !isUnlocked() && (
-              <div className="mt-8 rounded-2xl bg-gradient-to-br from-taxmate-600 to-taxmate-800 p-8 text-center text-white shadow-xl">
-                <p className="text-xl font-bold">Want the full guide?</p>
-                <p className="mt-1 text-taxmate-200 text-sm">MyGov checklist and audit guide included.</p>
-                <Link
-                  href="/purchase"
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3 text-sm font-bold text-taxmate-700 hover:bg-taxmate-50 transition shadow-lg"
-                >
-                  Unlock everything — $4.99
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                  </svg>
-                </Link>
-              </div>
-            )}
+            {/* Paywall commented out — all guides accessible freely via links below */}
 
             <div className="mt-6 flex flex-wrap gap-3">
               <button
@@ -379,14 +633,19 @@ function ChecklistFlow() {
               </button>
               <Link
                 href="/mygov-checklist"
-                className={`rounded-xl px-6 py-3 text-sm font-semibold text-center transition flex-1 sm:flex-none ${
-                  unlocked || isUnlocked()
-                    ? "bg-taxmate-600 text-white hover:bg-taxmate-700 shadow-sm"
-                    : "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                }`}
+                className="rounded-xl px-6 py-3 text-sm font-semibold text-center transition flex-1 sm:flex-none bg-taxmate-600 text-white hover:bg-taxmate-700 shadow-sm"
               >
                 View MyGov checklist →
               </Link>
+              <button
+                onClick={downloadReport}
+                className="rounded-xl border-2 border-teal-200 bg-white px-6 py-3 text-sm font-semibold text-teal-700 hover:border-teal-300 hover:bg-teal-50 transition flex-1 sm:flex-none"
+              >
+                <svg className="w-4 h-4 inline -mt-0.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Download report
+              </button>
             </div>
           </div>
         )}
@@ -396,9 +655,5 @@ function ChecklistFlow() {
 }
 
 export default function ChecklistPage() {
-  return (
-    <PurchaseProvider>
-      <ChecklistFlow />
-    </PurchaseProvider>
-  )
+  return <ChecklistFlow />
 }

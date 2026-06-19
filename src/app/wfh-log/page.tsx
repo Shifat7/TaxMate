@@ -2,21 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { PurchaseProvider, usePurchase } from "@/lib/purchase-context"
 import {
   getWfhLog,
   addWfhEntry,
   removeWfhEntry,
   importWfhCsv,
   exportWfhCsv,
-  isUnlocked,
   getWfhRate,
   setWfhRate,
   WfhEntry,
 } from "@/lib/storage"
 
 function WfhLogApp() {
-  const { unlocked } = usePurchase()
   const [mounted, setMounted] = useState(false)
   const [entries, setEntries] = useState<WfhEntry[]>([])
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0])
@@ -71,41 +68,7 @@ function WfhLogApp() {
 
   const totalHours = entries.reduce((s, e) => s + e.hours, 0)
   const totalClaim = totalHours * rate
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date))
-
-  const canAccess = mounted && (unlocked || isUnlocked())
-
-  if (mounted && !canAccess) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-white via-taxmate-50/20 to-white">
-        <nav className="flex items-center gap-4 px-6 py-5 max-w-3xl mx-auto border-b border-neutral-100">
-          <Link href="/" className="text-sm text-neutral-400 hover:text-neutral-700 transition flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
-            Home
-          </Link>
-          <span className="text-sm font-bold tracking-tight">WFH log</span>
-        </nav>
-        <main className="px-6 py-20 text-center max-w-md mx-auto">
-          <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400 mb-6">
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-          </span>
-          <h2 className="text-2xl font-bold">WFH log</h2>
-          <p className="mt-2 text-neutral-500">Purchase TaxMate to track your work-from-home days.</p>
-          <Link
-            href="/purchase"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-taxmate-600 px-6 py-3 text-sm font-semibold text-white hover:bg-taxmate-700 transition shadow-lg"
-          >
-            Unlock — $4.99
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </Link>
-        </main>
-      </div>
-    )
-  }
+    const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date))
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-taxmate-50/20 to-white">
@@ -320,9 +283,5 @@ function WfhLogApp() {
 }
 
 export default function WfhLogPage() {
-  return (
-    <PurchaseProvider>
-      <WfhLogApp />
-    </PurchaseProvider>
-  )
+  return <WfhLogApp />
 }
