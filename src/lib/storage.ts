@@ -1,3 +1,8 @@
+// ─── LodgeReady — localStorage persistence ──────────────────────────
+// All data stays on the user's device. No backend, no cookies, no tracking.
+
+import type { UserType } from "@/data/deductions"
+
 export function getStorageItem<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback
   try {
@@ -22,18 +27,33 @@ export function removeStorageItem(key: string): void {
   localStorage.removeItem(key)
 }
 
+// ─── Storage keys ────────────────────────────────────────────────────
+
+const KEYS = {
+  userType: "lr-user-type",
+  wfhLog: "lr-wfh-log",
+  vehicleLog: "lr-vehicle-log",
+  wfhRate: "lr-wfh-rate",
+  expenseLog: "lr-expense-log",
+} as const
+
+// ─── User type ───────────────────────────────────────────────────────
+
+export function getUserType(): UserType | null {
+  return getStorageItem<UserType | null>(KEYS.userType, null)
+}
+
+export function setUserType(userType: UserType): void {
+  setStorageItem(KEYS.userType, userType)
+}
+
+// ─── WFH log ─────────────────────────────────────────────────────────
+
 export interface WfhEntry {
   date: string // YYYY-MM-DD
   hours: number
   notes: string
 }
-
-const KEYS = {
-  wfhLog: "taxmate-wfh-log",
-  checklistAnswers: "taxmate-checklist-answers",
-  wfhRate: "taxmate-wfh-rate",
-  byokConfig: "taxmate-byok-config",
-} as const
 
 export function getWfhLog(): WfhEntry[] {
   return getStorageItem<WfhEntry[]>(KEYS.wfhLog, [])
@@ -65,7 +85,6 @@ export function importWfhCsv(csv: string): WfhEntry[] {
       const date = parts[0].trim()
       const hours = parseFloat(parts[1].trim())
       let notes = parts.slice(2).join(",").trim()
-      // strip surrounding quotes and unescape
       if (notes.startsWith('"') && notes.endsWith('"')) {
         notes = notes.slice(1, -1).replace(/""/g, '"')
       }
@@ -94,50 +113,95 @@ export function exportWfhCsv(): string {
 }
 
 export function getWfhRate(): number {
-  return getStorageItem<number>(KEYS.wfhRate, 0.67)
+  return getStorageItem<number>(KEYS.wfhRate, 0.70)
 }
 
 export function setWfhRate(rate: number): void {
   setStorageItem(KEYS.wfhRate, rate)
 }
 
-export interface WfhLogSummary {
-  totalDays: number
-  totalHours: number
-  uniqueWeeks: number
+// ─── Vehicle log ─────────────────────────────────────────────────────
+
+export interface VehicleEntry {
+  date: string // YYYY-MM-DD
+  km: number
+  from: string
+  to: string
+  purpose: string
 }
 
-export function getWfhLogSummary(): WfhLogSummary {
-  const log = getWfhLog()
-  if (log.length === 0) return { totalDays: 0, totalHours: 0, uniqueWeeks: 0 }
-
-  const totalHours = log.reduce((sum, e) => sum + e.hours, 0)
-
-  // Calculate unique ISO weeks from entries
-  const weeks = new Set<string>()
-  for (const entry of log) {
-    const [y, m, d] = entry.date.split("-").map(Number)
-    const date = new Date(y, m - 1, d)
-    // ISO week number: move to Thursday then count weeks from year start
-    const dayNum = date.getDay() || 7
-    date.setDate(date.getDate() + 4 - dayNum)
-    const yearStart = new Date(date.getFullYear(), 0, 1)
-    const weekNum = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-    weeks.add(`${date.getFullYear()}-W${String(weekNum).padStart(2, "0")}`)
-  }
-
-  return {
-    totalDays: log.length,
-    totalHours,
-    uniqueWeeks: weeks.size,
-  }
+export function getVehicleLog(): VehicleEntry[] {
+  return getStorageItem<VehicleEntry[]>(KEYS.vehicleLog, [])
 }
+
+export function setVehicleLog(entries: VehicleEntry[]): void {
+  setStorageItem(KEYS.vehicleLog, entries)
+}
+
+export function addVehicleEntry(entry: VehicleEntry): VehicleEntry[] {
+  const log = getVehicleLog()
+  log.push(entry)
+  setVehicleLog(log)
+  return log
+}
+
+export function removeVehicleEntry(date: string, from: string): VehicleEntry[] {
+  const log = getVehicleLog().filter((e) => !(e.date === date && e.from === from))
+  setVehicleLog(log)
+  return log
+}
+
+export function exportVehicleCsv(): string {
+  const log = getVehicleLog()
+  const sorted = [...log].sort((a, b) => a.date.localeCompare(b.date))
+  const header = "date,km,from,to,purpose"
+  const rows = sorted.map(
+    (e) => `${e.date},${e.km},"${e.from.replace(/"/g, '""')}","${e.to.replace(/"/g, '""')}","${e.purpose.replace(/"/g, '""')}"`
+  )
+  return [header, ...rows].join("\n")
+}
+
+// ─── Expense log ─────────────────────────────────────────────────────
+
+export interface ExpenseEntry {
+  id: string
+  date: string
+  amount: number
+  category: string
+  description: string
+  hasReceipt: boolean
+}
+
+export function getExpenseLog(): ExpenseEntry[] {
+  return getStorageItem<ExpenseEntry[]>(KEYS.expenseLog, [])
+}
+
+export function setExpenseLog(entries: ExpenseEntry[]): void {
+  setStorageItem(KEYS.expenseLog, entries)
+}
+
+export function addExpenseEntry(entry: ExpenseEntry): ExpenseEntry[] {
+  const log = getExpenseLog()
+  log.push(entry)
+  setExpenseLog(log)
+  return log
+}
+
+export function removeExpenseEntry(id: string): ExpenseEntry[] {
+  const log = getExpenseLog().filter((e) => e.id !== id)
+  setExpenseLog(log)
+  return log
+}
+
+// ─── Report generation ───────────────────────────────────────────────
 
 export interface CsvReportInput {
+  userType: string
   jobLabel: string
-  wfhHours: number | null
-  wfhWeeks: number
+  wfhHours: number
   wfhClaim: number
+  vehicleKm: number
+  vehicleClaim: number
   deductions: { id: string; label: string; maxClaim?: string }[]
 }
 
@@ -145,47 +209,22 @@ export function generateCsvReport(input: CsvReportInput): string {
   const rows: string[][] = []
   const push = (cells: string[]) => rows.push(cells.map((c) => `"${c.replace(/"/g, '""')}"`))
 
-  // Header
-  push(["TaxMate Deduction Report", ""])
+  push(["LodgeReady Expense Summary", ""])
   push(["Generated", new Date().toLocaleDateString("en-AU")])
+  push(["User type", input.userType])
+  push(["Occupation", input.jobLabel])
   push([""])
-
-  // Job & WFH
-  push(["Job type", input.jobLabel])
-  push(["WFH hours per week", String(input.wfhHours ?? 0)])
-  push(["Weeks worked from home", String(input.wfhWeeks)])
+  push(["WFH total hours", String(input.wfhHours)])
   push(["WFH estimated claim", `$${input.wfhClaim.toFixed(2)}`])
+  push(["Vehicle total km", String(input.vehicleKm)])
+  push(["Vehicle estimated claim", `$${input.vehicleClaim.toFixed(2)}`])
   push([""])
-
-  // Deductions table
-  push(["Deduction", "Max claim"])
+  push(["Category", "Limit / Method"])
   for (const d of input.deductions) {
     push([d.label, d.maxClaim ?? "Varies"])
   }
   push([""])
-  push(["Report prepared for tax purposes — verify with your tax agent.", ""])
+  push(["This is a data summary — not tax advice. Verify all figures with the ATO or a registered tax agent.", ""])
 
   return rows.map((r) => r.join(",")).join("\n")
-}
-
-export interface ByokConfig {
-  baseUrl: string
-  apiKey: string
-  model: string
-}
-
-export function getByokConfig(): ByokConfig {
-  return getStorageItem<ByokConfig>(KEYS.byokConfig, {
-    baseUrl: "https://api.openai.com/v1",
-    apiKey: "",
-    model: "gpt-4o-mini",
-  })
-}
-
-export function setByokConfig(config: ByokConfig): void {
-  setStorageItem(KEYS.byokConfig, config)
-}
-
-export function clearByokConfig(): void {
-  removeStorageItem(KEYS.byokConfig)
 }

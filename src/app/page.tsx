@@ -1,183 +1,245 @@
 "use client"
 
 import Link from "next/link"
+import { USER_TYPES, type UserType } from "@/data/deductions"
+import { setUserType } from "@/lib/storage"
 
-function Nav() {
-  return (
-    <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
-      <Link href="/" className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-taxmate-600 text-white text-sm font-bold">T</span>
-        <span className="text-lg font-bold tracking-tight">TaxMate</span>
-      </Link>
-      <div className="flex items-center gap-4 text-sm">
-        <Link
-          href="/checklist"
-          className="rounded-lg bg-taxmate-600 px-5 py-2.5 font-medium text-white hover:bg-taxmate-700 transition shadow-sm"
-        >
-          Start deduction finder
-        </Link>
-      </div>
-    </nav>
-  )
-}
+const TOOLS = [
+  {
+    icon: "🏠",
+    title: "WFH / Home Office Log",
+    description:
+      "Log the hours you work from home. We total them up and estimate your claim at the ATO fixed rate — with a CSV you can hand to your accountant.",
+    href: "/wfh-log",
+    cta: "Open the log",
+  },
+  {
+    icon: "🚗",
+    title: "Vehicle & KM Tracker",
+    description:
+      "Record trips for client visits, worksite travel, and supply runs. We estimate your cents-per-km claim and warn you before you hit the cap.",
+    href: "/vehicle-log",
+    cta: "Track your trips",
+  },
+  {
+    icon: "📖",
+    title: "Occupation Guides",
+    description:
+      "Plain-English guides for rideshare drivers, sole traders, IT contractors, and first-time ABN holders — with links back to the ATO source.",
+    href: "/guides",
+    cta: "Browse guides",
+  },
+]
 
-function Hero() {
-  return (
-    <section className="px-6 pt-16 pb-8 text-center">
-      <div className="max-w-3xl mx-auto">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-taxmate-100 text-taxmate-700 mb-6">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </span>
-        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight text-neutral-900 leading-[1.1]">
-          File your taxes<br />
-          <span className="text-taxmate-600">like a pro</span>
-        </h1>
-        <p className="mt-5 text-lg text-neutral-500 max-w-xl mx-auto leading-relaxed">
-          Deduction finder, WFH log, MyGov walkthrough, AI assistant, and audit guide — everything
-          a salaried Australian needs for tax time.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/checklist"
-            className="inline-flex items-center gap-2 rounded-xl bg-taxmate-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-taxmate-700 transition shadow-lg"
-          >
-            Start deduction finder
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </Link>
-          <Link
-            href="/wfh-log"
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-neutral-200 bg-white px-8 py-3.5 text-base font-semibold text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50 transition"
-          >
-            Track WFH days
-          </Link>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function FeatureCards() {
-  const features = [
-    {
-      icon: "📋",
-      label: "Deduction finder",
-      desc: "Answer a few questions to see every deduction you're entitled to — with ATO rules and rate limits.",
-      link: "/checklist",
-      color: "bg-blue-50 border-blue-200",
-    },
-    {
-      icon: "🏠",
-      label: "WFH log",
-      desc: "Track your work-from-home days with a simple log. Export CSV for your tax agent. ATO-compliant.",
-      link: "/wfh-log",
-      color: "bg-emerald-50 border-emerald-200",
-    },
-    {
-      icon: "📄",
-      label: "MyGov walkthrough",
-      desc: "Step-by-step guide to lodging your return on MyGov. No guesswork, just follow the steps.",
-      link: "/mygov-checklist",
-      color: "bg-violet-50 border-violet-200",
-    },
-    {
-      icon: "🛡️",
-      label: "Audit guide",
-      desc: "What records to keep, what triggers an ATO review, and how to handle it if you're audited.",
-      link: "/audit-guide",
-      color: "bg-amber-50 border-amber-200",
-    },
-  ]
-
-  return (
-    <section className="px-6 py-16 max-w-5xl mx-auto">
-      <div className="grid gap-5 sm:grid-cols-2">
-        {features.map((f) => (
-          <Link
-            key={f.label}
-            href={f.link}
-            className={`rounded-2xl border ${f.color} bg-white p-7 hover:shadow-lg transition`}
-          >
-            <span className="text-3xl">{f.icon}</span>
-            <p className="mt-3 font-bold text-lg text-neutral-900">{f.label}</p>
-            <p className="mt-1 text-sm text-neutral-500 leading-relaxed">{f.desc}</p>
-          </Link>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function AiCard() {
-  return (
-    <section className="px-6 pb-16 max-w-5xl mx-auto">
-      <Link
-        href="/ai"
-        className="block rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-7 hover:shadow-lg transition"
-      >
-        <div className="flex items-start gap-4">
-          <span className="text-3xl shrink-0">🤖</span>
-          <div>
-            <p className="font-bold text-lg text-neutral-900">AI Assistant</p>
-            <p className="mt-1 text-sm text-neutral-500 leading-relaxed">
-              Ask tax questions and get answers powered by your own LLM provider. Bring your own API key — it stays on your device.
-            </p>
-          </div>
-          <svg className="w-5 h-5 shrink-0 text-neutral-300 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-          </svg>
-        </div>
-      </Link>
-    </section>
-  )
-}
-
-function Cta() {
-  return (
-    <section className="px-6 py-16 text-center">
-      <div className="max-w-lg mx-auto rounded-2xl bg-white border border-neutral-200 p-10 shadow-xl">
-        <p className="text-3xl font-extrabold tracking-tight text-neutral-900">Free for everyone</p>
-        <p className="mt-2 text-neutral-500">No purchase needed. All features included.</p>
-        <div className="mt-6 space-y-3 text-sm text-left">
-          {["Deduction finder with ATO rules", "WFH log with CSV export", "MyGov step-by-step guide", "Audit support and record-keeping"].map((item) => (
-            <div key={item} className="flex items-center gap-3">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-taxmate-100 text-taxmate-700 text-xs font-bold">✓</span>
-              {item}
-            </div>
-          ))}
-        </div>
-        <Link
-          href="/checklist"
-          className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-taxmate-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-taxmate-700 transition shadow-lg"
-        >
-          Find your deductions
-        </Link>
-        <p className="mt-3 text-xs text-neutral-400">Instant access. No account needed. Your data stays on your device.</p>
-      </div>
-    </section>
-  )
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-neutral-200 px-6 py-10 text-center text-sm text-neutral-400">
-      <p>TaxMate provides educational guidance only. Always verify with the ATO or a registered tax agent.</p>
-    </footer>
-  )
-}
+const PRIVACY_POINTS = [
+  {
+    title: "No accounts, ever",
+    description: "There's nothing to sign up for. Open the site and start logging — no email, no password.",
+  },
+  {
+    title: "No tracking",
+    description: "We don't run analytics or advertising scripts that follow you around. Your habits are your business.",
+  },
+  {
+    title: "localStorage only",
+    description: "Everything you enter is saved in your browser's local storage on your own device. Nothing is uploaded to a server.",
+  },
+]
 
 export default function Home() {
+  function handleUserTypeSelect(id: UserType) {
+    setUserType(id)
+    const toolsSection = document.getElementById("tools")
+    toolsSection?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
   return (
-    <>
-      <Nav />
-      <Hero />
-      <FeatureCards />
-      <AiCard />
-      <Cta />
-      <Footer />
-    </>
+    <div className="flex min-h-screen flex-col">
+      {/* ─── Nav ─────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/80 backdrop-blur">
+        <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-lr-600 text-sm font-bold text-white">
+              LR
+            </span>
+            <span className="text-lg font-bold text-neutral-900">LodgeReady</span>
+          </Link>
+          <div className="hidden items-center gap-8 text-sm font-medium text-neutral-600 sm:flex">
+            <Link href="/guides" className="transition hover:text-lr-700">
+              Guides
+            </Link>
+            <a href="#tools" className="transition hover:text-lr-700">
+              Tools
+            </a>
+            <a href="#privacy" className="transition hover:text-lr-700">
+              About
+            </a>
+          </div>
+          <a
+            href="#user-type"
+            className="rounded-full bg-lr-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-lr-700"
+          >
+            Get started
+          </a>
+        </nav>
+      </header>
+
+      <main className="flex-1">
+        {/* ─── Hero ──────────────────────────────────────────────────── */}
+        <section className="mx-auto max-w-6xl px-4 pt-16 pb-20 text-center sm:px-6 sm:pt-24">
+          <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-lr-200 bg-lr-50 px-4 py-1.5 text-xs font-semibold text-lr-700">
+            Built for the 2025-26 Australian tax year
+          </span>
+          <h1 className="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight text-neutral-900 sm:text-6xl">
+            Get lodge-ready for tax time
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-neutral-600 sm:text-xl">
+            Track your work-from-home hours and vehicle km, and understand exactly what you can claim —
+            whether you&apos;re a contractor, sole trader, gig worker, or employee. Free, private, and
+            always on your device.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <a
+              href="#user-type"
+              className="rounded-full bg-lr-600 px-7 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-lr-700"
+            >
+              Choose your work type
+            </a>
+            <Link
+              href="/guides"
+              className="rounded-full border border-neutral-300 bg-white px-7 py-3.5 text-base font-semibold text-neutral-800 shadow-sm transition hover:border-lr-300 hover:text-lr-700"
+            >
+              Browse guides
+            </Link>
+          </div>
+        </section>
+
+        {/* ─── User Type Selector ───────────────────────────────────── */}
+        <section id="user-type" className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-2xl font-bold text-neutral-900 sm:text-3xl">What describes your work?</h2>
+            <p className="mt-3 text-neutral-600">
+              We&apos;ll tailor deduction guidance to your situation. You can change this at any time.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            {USER_TYPES.map((type) => (
+              <button
+                key={type.id}
+                onClick={() => handleUserTypeSelect(type.id)}
+                className="group flex flex-col items-start rounded-2xl border border-neutral-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-lr-300 hover:shadow-md"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-lr-50 text-2xl transition group-hover:bg-lr-100">
+                  {type.icon}
+                </span>
+                <h3 className="mt-4 text-lg font-bold text-neutral-900">{type.label}</h3>
+                <p className="mt-2 text-sm text-neutral-600">{type.description}</p>
+                <p className="mt-3 text-xs font-medium text-lr-700">{type.examples}</p>
+                <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-lr-600 transition group-hover:gap-2">
+                  Select
+                  <span aria-hidden="true">→</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ─── Tools Section ────────────────────────────────────────── */}
+        <section id="tools" className="bg-lr-50/60 py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-2xl font-bold text-neutral-900 sm:text-3xl">Tools to keep you organised</h2>
+              <p className="mt-3 text-neutral-600">
+                Simple trackers that build the exact records the ATO asks for — no spreadsheets required.
+              </p>
+            </div>
+            <div className="mt-10 grid gap-6 sm:grid-cols-3">
+              {TOOLS.map((tool) => (
+                <Link
+                  key={tool.href}
+                  href={tool.href}
+                  className="group flex flex-col rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-lr-300 hover:shadow-md"
+                >
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-lr-50 text-2xl transition group-hover:bg-lr-100">
+                    {tool.icon}
+                  </span>
+                  <h3 className="mt-4 text-lg font-bold text-neutral-900">{tool.title}</h3>
+                  <p className="mt-2 flex-1 text-sm text-neutral-600">{tool.description}</p>
+                  <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-lr-600 transition group-hover:gap-2">
+                    {tool.cta}
+                    <span aria-hidden="true">→</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Privacy Section ──────────────────────────────────────── */}
+        <section id="privacy" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+          <div className="overflow-hidden rounded-2xl border border-lr-200 bg-gradient-to-br from-lr-600 to-lr-800 px-6 py-14 text-center shadow-sm sm:px-14">
+            <h2 className="text-2xl font-bold text-white sm:text-3xl">Your data never leaves your device</h2>
+            <p className="mx-auto mt-3 max-w-xl text-lr-50">
+              LodgeReady was built on a simple principle: your financial information is yours. There&apos;s
+              no server to store it, no company to sell it, and no account to lose it from.
+            </p>
+            <div className="mx-auto mt-10 grid max-w-3xl gap-6 text-left sm:grid-cols-3">
+              {PRIVACY_POINTS.map((point) => (
+                <div key={point.title} className="rounded-xl bg-white/10 p-5 backdrop-blur">
+                  <h3 className="text-sm font-bold text-white">{point.title}</h3>
+                  <p className="mt-2 text-sm text-lr-50">{point.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ─── Footer ──────────────────────────────────────────────────── */}
+      <footer className="border-t border-neutral-200 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-lr-600 text-xs font-bold text-white">
+                LR
+              </span>
+              <span className="font-bold text-neutral-900">LodgeReady</span>
+            </div>
+            <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm font-medium text-neutral-600">
+              <Link href="/guides" className="transition hover:text-lr-700">
+                Guides
+              </Link>
+              <Link href="/wfh-log" className="transition hover:text-lr-700">
+                WFH log
+              </Link>
+              <Link href="/vehicle-log" className="transition hover:text-lr-700">
+                Vehicle log
+              </Link>
+              <a
+                href="https://www.ato.gov.au"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition hover:text-lr-700"
+              >
+                ato.gov.au ↗
+              </a>
+            </div>
+          </div>
+          <p className="mt-8 max-w-3xl text-xs leading-relaxed text-neutral-500">
+            LodgeReady provides general information only. It is not tax advice. Always verify with the{" "}
+            <a
+              href="https://www.ato.gov.au"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-lr-700 underline hover:text-lr-800"
+            >
+              ATO (ato.gov.au)
+            </a>{" "}
+            or a registered tax agent before making decisions about your tax return.
+          </p>
+          <p className="mt-4 text-xs text-neutral-400">© {new Date().getFullYear()} LodgeReady. All figures on this site are estimates.</p>
+        </div>
+      </footer>
+    </div>
   )
 }
