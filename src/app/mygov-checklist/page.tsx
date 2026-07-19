@@ -57,11 +57,11 @@ const checklistSteps = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
-    color: "bg-taxmate-50 text-taxmate-700 border-taxmate-200",
+    color: "bg-lr-50 text-lr-700 border-lr-200",
     details: [
-      "Use the checklist from TaxMate's Deduction Finder to know what to claim",
+      "Check LodgeReady's occupation guides for what you can claim",
       'Work-related expenses: enter under "Deductions" → "Work-related expenses"',
-      "WFH expenses: use the fixed-rate method ($0.67/hr) or actual cost method",
+      "WFH expenses: use the fixed-rate method ($0.70/hr) or actual cost method",
       "Enter total amounts for each category — no need to upload receipts unless audited",
       "Laundry: $1 per load if only work clothes, $0.50 if mixed",
       "Self-education: enter total course fees, minus any employer reimbursement",
@@ -103,7 +103,7 @@ const checklistSteps = [
 
 function MyGovChecklistPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-taxmate-50/20 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-white via-lr-50/20 to-white">
       <nav className="flex items-center gap-4 px-6 py-5 max-w-3xl mx-auto border-b border-neutral-100">
         <Link href="/" className="text-sm text-neutral-400 hover:text-neutral-700 transition flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
@@ -193,10 +193,10 @@ function MyGovChecklistPage() {
             </svg>
           </Link>
           <Link
-            href="/checklist"
-            className="inline-flex items-center gap-2 rounded-xl bg-taxmate-600 px-6 py-3 text-sm font-semibold text-white hover:bg-taxmate-700 transition shadow-sm"
+            href="/guides"
+            className="inline-flex items-center gap-2 rounded-xl bg-lr-600 px-6 py-3 text-sm font-semibold text-white hover:bg-lr-700 transition shadow-sm"
           >
-            Back to deduction finder
+            Browse deduction guides
           </Link>
         </div>
       </main>

@@ -4,7 +4,7 @@ import Link from "next/link"
 
 function AuditGuidePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-taxmate-50/20 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-white via-lr-50/20 to-white">
       <nav className="flex items-center gap-4 px-6 py-5 max-w-3xl mx-auto border-b border-neutral-100">
         <Link href="/" className="text-sm text-neutral-400 hover:text-neutral-700 transition flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
@@ -46,7 +46,7 @@ function AuditGuidePage() {
               },
               {
                 label: "WFH expenses",
-                items: ["TaxMate WFH log (exported CSV)", "Electricity and internet bills (if using actual cost)", "Receipts for home office equipment", "Diary record of hours worked from home"],
+                items: ["LodgeReady's WFH log (exported CSV)", "Electricity and internet bills (if using actual cost)", "Receipts for home office equipment", "Diary record of hours worked from home"],
                 color: "border-emerald-200 bg-emerald-50/30",
                 dot: "bg-emerald-400",
               },
@@ -139,7 +139,7 @@ function AuditGuidePage() {
                 { title: "Dispute if you disagree", desc: "You can object to an ATO decision within 4 years. The process is outlined on ato.gov.au." },
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-4">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-taxmate-100 text-taxmate-700 text-xs font-bold">{i + 1}</span>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-lr-100 text-lr-700 text-xs font-bold">{i + 1}</span>
                   <div>
                     <strong className="text-neutral-900">{item.title}.</strong>
                     <p className="text-sm text-neutral-600 mt-0.5">{item.desc}</p>
@@ -167,7 +167,7 @@ function AuditGuidePage() {
                 The ATO uses industry benchmarks. For a salaried office worker claiming $2,000+ in
                 work-related expenses, you&apos;re above the average and more likely to be reviewed. This
                 doesn&apos;t mean you shouldn&apos;t claim what you&apos;re entitled to — just make sure you have
-                records to back it up. <strong>TaxMate&apos;s WFH log gives you a proper record.</strong>
+                records to back it up. <strong>LodgeReady&apos;s WFH log gives you a proper record.</strong>
               </p>
             </div>
           </div>
@@ -184,10 +184,10 @@ function AuditGuidePage() {
             </svg>
           </Link>
           <Link
-            href="/wfh-log"
-            className="inline-flex items-center gap-2 rounded-xl bg-taxmate-600 px-6 py-3 text-sm font-semibold text-white hover:bg-taxmate-700 transition shadow-sm"
+            href="/guides"
+            className="inline-flex items-center gap-2 rounded-xl bg-lr-600 px-6 py-3 text-sm font-semibold text-white hover:bg-lr-700 transition shadow-sm"
           >
-            Go to WFH log
+            Browse deduction guides
           </Link>
         </div>
       </main>
